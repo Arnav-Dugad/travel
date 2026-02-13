@@ -2,183 +2,973 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Orbit: Travel Tracker</title>
-    
-    <script src="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Cesium.js"></script>
-    <link href="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terra - Advanced Earth Simulation</title>
     <style>
-        /* Fullscreen Map */
-        body, html, #cesiumContainer { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #000; }
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap');
         
-        /* HUD Glass Effect */
-        .glass-panel {
-            background: rgba(10, 10, 20, 0.75);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(0, 255, 255, 0.2);
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.15);
+        :root {
+            --bg-deep: #0a0e1a;
+            --bg-dark: #0f1420;
+            --bg-card: #1a1f2e;
+            --accent-primary: #00d9ff;
+            --accent-secondary: #7b2ff7;
+            --accent-tertiary: #ff006e;
+            --text-primary: #e8f1ff;
+            --text-secondary: #8b9dc3;
+            --glow: rgba(0, 217, 255, 0.3);
         }
         
-        /* Sci-Fi Text Glow */
-        .glow-text {
-            text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* Starfield Background */
+        .starfield {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+            z-index: 0;
+        }
+        
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle var(--duration) infinite;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+        
+        /* Canvas Container */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        /* UI Overlay */
+        .ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            padding: 2rem;
+            gap: 2rem;
+        }
+        
+        .ui-overlay > * {
+            pointer-events: auto;
+        }
+        
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            animation: slideDown 1s ease-out;
+        }
+        
+        @keyframes slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: 0.1em;
+            text-shadow: 0 0 30px var(--glow);
+            animation: glow 3s ease-in-out infinite;
+        }
+        
+        @keyframes glow {
+            0%, 100% { filter: drop-shadow(0 0 10px var(--glow)); }
+            50% { filter: drop-shadow(0 0 20px var(--glow)); }
+        }
+        
+        .stats-panel {
+            background: rgba(26, 31, 46, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            border-radius: 16px;
+            padding: 1.5rem;
+            min-width: 250px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+        }
+        
+        .stat-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .stat-label {
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 0.75rem;
+        }
+        
+        .stat-value {
+            color: var(--accent-primary);
+            font-weight: bold;
+            font-family: 'Orbitron', sans-serif;
+        }
+        
+        /* Control Panel */
+        .control-panel {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(26, 31, 46, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            border-radius: 20px;
+            padding: 1.5rem 2rem;
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            animation: slideUp 1s ease-out 0.3s both;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translate(-50%, 150%); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .control-group label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        button {
+            background: linear-gradient(135deg, rgba(0, 217, 255, 0.1), rgba(123, 47, 247, 0.1));
+            border: 1px solid rgba(0, 217, 255, 0.3);
+            color: var(--text-primary);
+            padding: 0.7rem 1.5rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        button:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 217, 255, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        button:hover:before {
+            left: 100%;
+        }
+        
+        button:hover {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 20px rgba(0, 217, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        button.active {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-color: transparent;
+            box-shadow: 0 0 30px var(--glow);
+        }
+        
+        /* Slider */
+        input[type="range"] {
+            width: 150px;
+            height: 4px;
+            background: rgba(0, 217, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--glow);
+            transition: transform 0.2s ease;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px var(--glow);
+        }
+        
+        /* Info Panel */
+        .info-panel {
+            position: fixed;
+            top: 50%;
+            right: 2rem;
+            transform: translateY(-50%);
+            background: rgba(26, 31, 46, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            border-radius: 16px;
+            padding: 2rem;
+            max-width: 300px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            animation: slideLeft 1s ease-out 0.6s both;
+        }
+        
+        @keyframes slideLeft {
+            from { transform: translate(150%, -50%); opacity: 0; }
+            to { transform: translate(0, -50%); opacity: 1; }
+        }
+        
+        .info-panel h3 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: var(--accent-primary);
+        }
+        
+        .info-item {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .info-item strong {
+            display: block;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+        
+        .info-item span {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+        }
+        
+        /* Legend */
+        .legend {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: rgba(26, 31, 46, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 217, 255, 0.2);
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            gap: 1.5rem;
+            animation: fadeIn 1s ease-out 0.9s both;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-deep);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        
+        .loading-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+        
+        .loading-spinner {
+            width: 80px;
+            height: 80px;
+            border: 4px solid rgba(0, 217, 255, 0.1);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            margin-top: 2rem;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2rem;
+            color: var(--accent-primary);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .ui-overlay {
+                padding: 1rem;
+            }
+            
+            .logo {
+                font-size: 1.5rem;
+            }
+            
+            .control-panel {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1rem;
+                bottom: 1rem;
+            }
+            
+            .info-panel {
+                display: none;
+            }
+            
+            .legend {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
         }
     </style>
 </head>
 <body>
-
-    <div id="cesiumContainer"></div>
-
-    <div class="absolute top-6 left-6 z-10 w-80 text-white">
-        <div class="glass-panel p-6 rounded-xl">
-            <h1 class="text-2xl font-bold tracking-widest uppercase mb-1 text-cyan-400 glow-text">TRAV-LOG</h1>
-            <p class="text-xs text-gray-400 mb-6 tracking-wider">SATELLITE UPLINK: ACTIVE</p>
-            
-            <div class="space-y-4 font-mono text-sm">
-                <div class="flex justify-between border-b border-gray-700 pb-2">
-                    <span class="text-gray-400">TOTAL DISTANCE</span>
-                    <span id="total-dist" class="text-cyan-300 font-bold text-lg">0 km</span>
+    <!-- Starfield Background -->
+    <div class="starfield" id="starfield"></div>
+    
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">INITIALIZING TERRA SIMULATION...</div>
+    </div>
+    
+    <!-- Canvas Container -->
+    <div id="canvas-container"></div>
+    
+    <!-- UI Overlay -->
+    <div class="ui-overlay">
+        <header>
+            <div class="logo">TERRA</div>
+            <div class="stats-panel">
+                <div class="stat-item">
+                    <span class="stat-label">Rotation Speed</span>
+                    <span class="stat-value" id="rotationSpeed">1.0x</span>
                 </div>
-                <div class="flex justify-between border-b border-gray-700 pb-2">
-                    <span class="text-gray-400">FLIGHTS LOGGED</span>
-                    <span id="flight-count" class="text-cyan-300 font-bold text-lg">0</span>
+                <div class="stat-item">
+                    <span class="stat-label">Time</span>
+                    <span class="stat-value" id="currentTime">00:00 UTC</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">View Mode</span>
+                    <span class="stat-value" id="viewMode">STANDARD</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">FPS</span>
+                    <span class="stat-value" id="fps">60</span>
                 </div>
             </div>
-
-            <div class="mt-6 space-y-2">
-                <button onclick="flyHome()" class="w-full py-2 bg-cyan-900/50 hover:bg-cyan-800 border border-cyan-500/30 text-cyan-300 rounded transition uppercase text-xs font-bold tracking-widest">
-                    Reset Camera
-                </button>
-                <button onclick="toggleDayNight()" class="w-full py-2 bg-gray-800/50 hover:bg-gray-700 border border-gray-600/30 text-gray-300 rounded transition uppercase text-xs font-bold tracking-widest">
-                    Toggle Day/Night
-                </button>
+        </header>
+    </div>
+    
+    <!-- Control Panel -->
+    <div class="control-panel">
+        <div class="control-group">
+            <label>VIEW MODE</label>
+            <div class="button-group">
+                <button id="standardView" class="active">Standard</button>
+                <button id="nightView">Night</button>
+                <button id="atmosphereView">Atmosphere</button>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label>ROTATION SPEED</label>
+            <input type="range" id="speedSlider" min="0" max="10" step="0.1" value="1">
+        </div>
+        
+        <div class="control-group">
+            <label>CONTROLS</label>
+            <div class="button-group">
+                <button id="toggleClouds">Clouds On</button>
+                <button id="toggleStars">Stars On</button>
+                <button id="toggleMoon">Moon On</button>
+                <button id="resetView">Reset</button>
             </div>
         </div>
     </div>
-
+    
+    <!-- Info Panel -->
+    <div class="info-panel">
+        <h3>Earth Statistics</h3>
+        <div class="info-item">
+            <strong>Diameter</strong>
+            <span>12,742 km</span>
+        </div>
+        <div class="info-item">
+            <strong>Mass</strong>
+            <span>5.972 × 10²⁴ kg</span>
+        </div>
+        <div class="info-item">
+            <strong>Surface Area</strong>
+            <span>510.1 million km²</span>
+        </div>
+        <div class="info-item">
+            <strong>Orbital Speed</strong>
+            <span>29.78 km/s</span>
+        </div>
+        <div class="info-item">
+            <strong>Axial Tilt</strong>
+            <span>23.44°</span>
+        </div>
+        <div class="info-item">
+            <strong>Day Length</strong>
+            <span>23h 56m 4s</span>
+        </div>
+    </div>
+    
+    <!-- Legend -->
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-color" style="background: #0077be;"></div>
+            <span>Ocean</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #228b22;"></div>
+            <span>Land</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ffffff;"></div>
+            <span>Ice</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ffaa00;"></div>
+            <span>Cities</span>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // --- 1. CONFIGURATION ---
-        // We use OpenStreetMap so no complex token is needed for the imagery.
-        // If you want 3D Terrain later, put your token here.
-        Cesium.Ion.defaultAccessToken = 'YOUR_TOKEN_HERE'; 
-
-        // --- 2. INIT GLOBE ---
-        const viewer = new Cesium.Viewer('cesiumContainer', {
-            // Use OpenStreetMap (Free, Reliable)
-            imageryProvider: new Cesium.UrlTemplateImageryProvider({
-                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                subdomains: ['a', 'b', 'c']
-            }),
-            baseLayerPicker: false,
-            geocoder: false,
-            homeButton: false,
-            infoBox: false,
-            sceneModePicker: false,
-            navigationHelpButton: false,
-            animation: false,
-            timeline: false,
-            fullscreenButton: false,
+        // Generate starfield
+        function createStarfield() {
+            const starfield = document.getElementById('starfield');
+            const starCount = 200;
             
-            // Render Settings for "Space Look"
-            skyAtmosphere: new Cesium.SkyAtmosphere(),
-            globe: new Cesium.Globe(Cesium.Ellipsoid.WGS84),
-            skyBox: new Cesium.SkyBox({
-                sources: {
-                    positiveX: 'https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Assets/Textures/SkyBox/tycho2t3_80_px.jpg',
-                    negativeX: 'https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Assets/Textures/SkyBox/tycho2t3_80_mx.jpg',
-                    positiveY: 'https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Assets/Textures/SkyBox/tycho2t3_80_py.jpg',
-                    negativeY: 'https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Assets/Textures/SkyBox/tycho2t3_80_my.jpg',
-                    positiveZ: 'https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Assets/Textures/SkyBox/tycho2t3_80_pz.jpg',
-                    negativeZ: 'https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Assets/Textures/SkyBox/tycho2t3_80_mz.jpg'
-                }
-            })
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.width = Math.random() * 2 + 0.5 + 'px';
+                star.style.height = star.style.width;
+                star.style.setProperty('--duration', Math.random() * 3 + 2 + 's');
+                star.style.animationDelay = Math.random() * 3 + 's';
+                starfield.appendChild(star);
+            }
+        }
+        
+        createStarfield();
+        
+        // Three.js Scene Setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        
+        // Camera position
+        camera.position.z = 3;
+        
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        scene.add(ambientLight);
+        
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        sunLight.position.set(5, 3, 5);
+        scene.add(sunLight);
+        
+        // Create procedural Earth texture
+        function createEarthTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 2048;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+            
+            // Ocean base
+            ctx.fillStyle = '#0066aa';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Add land masses (simplified continents)
+            ctx.fillStyle = '#2d8b47';
+            
+            // North America
+            ctx.beginPath();
+            ctx.ellipse(300, 300, 200, 250, 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // South America
+            ctx.beginPath();
+            ctx.ellipse(400, 650, 120, 200, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Europe
+            ctx.beginPath();
+            ctx.ellipse(1024, 280, 150, 100, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Africa
+            ctx.beginPath();
+            ctx.ellipse(1100, 500, 180, 280, 0.1, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Asia
+            ctx.beginPath();
+            ctx.ellipse(1500, 300, 300, 200, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Australia
+            ctx.beginPath();
+            ctx.ellipse(1700, 700, 130, 100, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Antarctica (bottom)
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 900, canvas.width, 124);
+            
+            // Arctic (top)
+            ctx.fillRect(0, 0, canvas.width, 80);
+            
+            // Add some noise/detail
+            for (let i = 0; i < 50000; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = Math.random() * 3;
+                ctx.fillStyle = `rgba(${Math.random() * 100}, ${Math.random() * 100 + 50}, ${Math.random() * 50}, 0.3)`;
+                ctx.fillRect(x, y, size, size);
+            }
+            
+            return new THREE.CanvasTexture(canvas);
+        }
+        
+        // Create city lights texture
+        function createCityLightsTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 2048;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Add random city lights
+            for (let i = 0; i < 3000; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = Math.random() * 2 + 0.5;
+                const brightness = Math.random() * 255;
+                ctx.fillStyle = `rgba(255, ${brightness}, 0, ${Math.random() * 0.8 + 0.2})`;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            return new THREE.CanvasTexture(canvas);
+        }
+        
+        // Create clouds texture
+        function createCloudsTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 2048;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Add cloud patterns
+            for (let i = 0; i < 800; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = Math.random() * 100 + 30;
+                const opacity = Math.random() * 0.6 + 0.2;
+                
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${opacity})`);
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x - size, y - size, size * 2, size * 2);
+            }
+            
+            return new THREE.CanvasTexture(canvas);
+        }
+        
+        // Earth
+        const earthGeometry = new THREE.SphereGeometry(1, 64, 64);
+        const earthTexture = createEarthTexture();
+        const cityLightsTexture = createCityLightsTexture();
+        
+        const earthMaterial = new THREE.MeshPhongMaterial({
+            map: earthTexture,
+            emissiveMap: cityLightsTexture,
+            emissive: new THREE.Color(0xffaa00),
+            emissiveIntensity: 0.3,
+            shininess: 10
         });
-
-        // Hide Credits
-        viewer.cesiumWidget.creditContainer.style.display = "none";
         
-        // Enable Lighting (Day/Night) by default
-        viewer.scene.globe.enableLighting = true;
-
-        // --- 3. DATA ENGINE (Hardcoded Trips) ---
-        // Add your trips here! Format: [Longitude, Latitude]
-        const myTrips = [
-            { name: "NYC to London", from: [-74.006, 40.712], to: [-0.127, 51.507] },
-            { name: "London to Mumbai", from: [-0.127, 51.507], to: [72.877, 19.076] },
-            { name: "Mumbai to Tokyo", from: [72.877, 19.076], to: [139.691, 35.689] },
-            { name: "Tokyo to Sydney", from: [139.691, 35.689], to: [151.209, -33.868] }
-        ];
-
-        let totalKm = 0;
-
-        // --- 4. RENDER FUNCTIONS ---
-        function renderTrips() {
-            myTrips.forEach(trip => {
-                const start = Cesium.Cartesian3.fromDegrees(trip.from[0], trip.from[1]);
-                const end = Cesium.Cartesian3.fromDegrees(trip.to[0], trip.to[1]);
-
-                // 1. Draw Flight Path (Glowing Arc)
-                viewer.entities.add({
-                    name: trip.name,
-                    polyline: {
-                        positions: [start, end],
-                        width: 4,
-                        material: new Cesium.PolylineGlowMaterialProperty({
-                            glowPower: 0.2,
-                            color: Cesium.Color.CYAN
-                        }),
-                        arcType: Cesium.ArcType.GEODESIC
-                    }
-                });
-
-                // 2. Draw City Marker (Dot)
-                viewer.entities.add({
-                    position: end,
-                    point: { pixelSize: 8, color: Cesium.Color.ORANGE, outlineColor: Cesium.Color.BLACK, outlineWidth: 2 }
-                });
-
-                // 3. Calculate Distance for Stats
-                const dist = calculateDistance(trip.from[1], trip.from[0], trip.to[1], trip.to[0]);
-                totalKm += dist;
-            });
-
-            // Update HUD
-            document.getElementById('total-dist').innerText = Math.round(totalKm).toLocaleString() + " km";
-            document.getElementById('flight-count').innerText = myTrips.length;
-        }
-
-        // Helper: Haversine Formula for Distance (in KM)
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Earth radius
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        }
-
-        // --- 5. INTERACTION FUNCTIONS ---
-        function flyHome() {
-            viewer.camera.flyTo({
-                destination: Cesium.Cartesian3.fromDegrees(0, 20, 25000000), // Space view
-                duration: 2.5
-            });
-        }
-
-        function toggleDayNight() {
-            viewer.scene.globe.enableLighting = !viewer.scene.globe.enableLighting;
-        }
-
-        // Start the Engine
-        renderTrips();
+        const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+        scene.add(earth);
         
-        // Initial fly-in
-        setTimeout(flyHome, 1000);
-
+        // Atmosphere glow
+        const atmosphereGeometry = new THREE.SphereGeometry(1.05, 64, 64);
+        const atmosphereMaterial = new THREE.ShaderMaterial({
+            transparent: true,
+            side: THREE.BackSide,
+            vertexShader: `
+                varying vec3 vNormal;
+                void main() {
+                    vNormal = normalize(normalMatrix * normal);
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                varying vec3 vNormal;
+                void main() {
+                    float intensity = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.0);
+                    gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0) * intensity;
+                }
+            `
+        });
+        
+        const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+        scene.add(atmosphere);
+        
+        // Clouds
+        const cloudsGeometry = new THREE.SphereGeometry(1.01, 64, 64);
+        const cloudsMaterial = new THREE.MeshPhongMaterial({
+            map: createCloudsTexture(),
+            transparent: true,
+            opacity: 0.4,
+            depthWrite: false
+        });
+        
+        const clouds = new THREE.Mesh(cloudsGeometry, cloudsMaterial);
+        scene.add(clouds);
+        
+        // Stars background
+        const starsGeometry = new THREE.BufferGeometry();
+        const starsMaterial = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 0.7,
+            transparent: true
+        });
+        
+        const starsVertices = [];
+        for (let i = 0; i < 10000; i++) {
+            const x = (Math.random() - 0.5) * 2000;
+            const y = (Math.random() - 0.5) * 2000;
+            const z = (Math.random() - 0.5) * 2000;
+            starsVertices.push(x, y, z);
+        }
+        
+        starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
+        const starField = new THREE.Points(starsGeometry, starsMaterial);
+        scene.add(starField);
+        
+        // Moon
+        const moonGeometry = new THREE.SphereGeometry(0.27, 32, 32);
+        const moonMaterial = new THREE.MeshPhongMaterial({
+            color: 0xaaaaaa,
+            emissive: 0x222222
+        });
+        const moon = new THREE.Mesh(moonGeometry, moonMaterial);
+        moon.position.set(3, 0.5, 0);
+        scene.add(moon);
+        
+        // Sun (light source visualization)
+        const sunGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+        const sunMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffff00,
+            emissive: 0xffff00
+        });
+        const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+        sun.position.copy(sunLight.position).multiplyScalar(3);
+        scene.add(sun);
+        
+        // Add sun glow
+        const sunGlowGeometry = new THREE.SphereGeometry(0.7, 32, 32);
+        const sunGlowMaterial = new THREE.ShaderMaterial({
+            transparent: true,
+            side: THREE.BackSide,
+            vertexShader: `
+                varying vec3 vNormal;
+                void main() {
+                    vNormal = normalize(normalMatrix * normal);
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                varying vec3 vNormal;
+                void main() {
+                    float intensity = pow(0.8 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.0);
+                    gl_FragColor = vec4(1.0, 0.9, 0.3, 1.0) * intensity;
+                }
+            `
+        });
+        const sunGlow = new THREE.Mesh(sunGlowGeometry, sunGlowMaterial);
+        sunGlow.position.copy(sun.position);
+        scene.add(sunGlow);
+        
+        // Mouse controls
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+        
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+        });
+        
+        // State
+        let rotationSpeed = 1;
+        let cloudsVisible = true;
+        let starsVisible = true;
+        let moonVisible = true;
+        let viewMode = 'standard';
+        
+        // UI Controls
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            rotationSpeed = parseFloat(e.target.value);
+            document.getElementById('rotationSpeed').textContent = rotationSpeed.toFixed(1) + 'x';
+        });
+        
+        document.getElementById('standardView').addEventListener('click', function() {
+            viewMode = 'standard';
+            earthMaterial.emissiveIntensity = 0.3;
+            atmosphere.visible = true;
+            updateViewButtons(this);
+            document.getElementById('viewMode').textContent = 'STANDARD';
+        });
+        
+        document.getElementById('nightView').addEventListener('click', function() {
+            viewMode = 'night';
+            earthMaterial.emissiveIntensity = 1.2;
+            atmosphere.visible = false;
+            updateViewButtons(this);
+            document.getElementById('viewMode').textContent = 'NIGHT';
+        });
+        
+        document.getElementById('atmosphereView').addEventListener('click', function() {
+            viewMode = 'atmosphere';
+            earthMaterial.emissiveIntensity = 0;
+            atmosphere.visible = true;
+            updateViewButtons(this);
+            document.getElementById('viewMode').textContent = 'ATMOSPHERE';
+        });
+        
+        function updateViewButtons(activeButton) {
+            document.querySelectorAll('#standardView, #nightView, #atmosphereView').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            activeButton.classList.add('active');
+        }
+        
+        document.getElementById('toggleClouds').addEventListener('click', function() {
+            cloudsVisible = !cloudsVisible;
+            clouds.visible = cloudsVisible;
+            this.textContent = cloudsVisible ? 'Clouds On' : 'Clouds Off';
+            this.classList.toggle('active', cloudsVisible);
+        });
+        
+        document.getElementById('toggleStars').addEventListener('click', function() {
+            starsVisible = !starsVisible;
+            starField.visible = starsVisible;
+            this.textContent = starsVisible ? 'Stars On' : 'Stars Off';
+            this.classList.toggle('active', starsVisible);
+        });
+        
+        document.getElementById('toggleMoon').addEventListener('click', function() {
+            moonVisible = !moonVisible;
+            moon.visible = moonVisible;
+            this.textContent = moonVisible ? 'Moon On' : 'Moon Off';
+            this.classList.toggle('active', moonVisible);
+        });
+        
+        document.getElementById('resetView').addEventListener('click', () => {
+            camera.position.set(0, 0, 3);
+            camera.lookAt(0, 0, 0);
+            targetRotationX = 0;
+            targetRotationY = 0;
+        });
+        
+        // Set initial button states
+        document.getElementById('toggleClouds').classList.add('active');
+        document.getElementById('toggleStars').classList.add('active');
+        document.getElementById('toggleMoon').classList.add('active');
+        
+        // Animation loop
+        let time = 0;
+        let lastTime = performance.now();
+        let frameCount = 0;
+        let fps = 60;
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const currentTime = performance.now();
+            const deltaTime = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+            
+            time += deltaTime * rotationSpeed;
+            
+            // Calculate FPS
+            frameCount++;
+            if (frameCount >= 60) {
+                fps = Math.round(1 / deltaTime);
+                document.getElementById('fps').textContent = fps;
+                frameCount = 0;
+            }
+            
+            // Update time display
+            const hours = Math.floor(time / 3600) % 24;
+            const minutes = Math.floor((time % 3600) / 60);
+            document.getElementById('currentTime').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} UTC`;
+            
+            // Rotate Earth
+            earth.rotation.y += 0.001 * rotationSpeed;
+            clouds.rotation.y += 0.0012 * rotationSpeed;
+            atmosphere.rotation.y = earth.rotation.y;
+            
+            // Rotate moon around Earth
+            const moonAngle = time * 0.1;
+            moon.position.x = Math.cos(moonAngle) * 3;
+            moon.position.z = Math.sin(moonAngle) * 3;
+            moon.rotation.y += 0.001;
+            
+            // Rotate star field slowly
+            starField.rotation.y += 0.0001;
+            
+            // Camera follows mouse slightly
+            targetRotationY = mouseX * 0.3;
+            targetRotationX = mouseY * 0.3;
+            
+            camera.position.x += (targetRotationY - camera.position.x) * 0.05;
+            camera.position.y += (targetRotationX - camera.position.y) * 0.05;
+            camera.lookAt(0, 0, 0);
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Hide loading screen after everything is ready
+        setTimeout(() => {
+            document.getElementById('loadingScreen').classList.add('hidden');
+        }, 2000);
+        
+        // Start animation
+        animate();
     </script>
 </body>
 </html>
