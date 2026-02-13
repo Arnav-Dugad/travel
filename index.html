@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>My Travel Globe</title>
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        /* Make the globe fill the window */
+        html, body, #cesiumContainer { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background: #000; }
+        
+        /* HUD Styling */
+        .hud-panel {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="cesiumContainer"></div>
+
+    <div class="absolute top-5 left-5 z-10 w-80 text-white">
+        <div class="hud-panel p-6 rounded-lg">
+            <h1 class="text-2xl font-bold tracking-widest uppercase mb-2 text-cyan-400">Mission Log</h1>
+            <div class="space-y-4 text-sm font-mono">
+                <div class="flex justify-between border-b border-gray-700 pb-2">
+                    <span class="text-gray-400">TOTAL DISTANCE</span>
+                    <span id="total-dist" class="text-cyan-300 font-bold">0.00 km</span>
+                </div>
+                <div class="flex justify-between border-b border-gray-700 pb-2">
+                    <span class="text-gray-400">COUNTRIES</span>
+                    <span id="country-count" class="text-cyan-300 font-bold">0</span>
+                </div>
+                <button onclick="flyHome()" class="w-full py-2 mt-4 bg-cyan-600 hover:bg-cyan-500 rounded font-bold transition">
+                    RESET VIEW
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="login-modal" class="absolute inset-0 z-50 flex items-center justify-center bg-black/90 hidden">
+        <div class="hud-panel p-8 rounded-xl text-center">
+            <h2 class="text-white text-xl mb-4">IDENTIFY YOURSELF</h2>
+            <input type="email" placeholder="Agent Email" class="block w-full p-2 mb-2 bg-gray-800 text-white border border-gray-600 rounded">
+            <input type="password" placeholder="Password" class="block w-full p-2 mb-4 bg-gray-800 text-white border border-gray-600 rounded">
+            <button class="px-6 py-2 bg-cyan-600 text-white rounded hover:bg-cyan-500">ACCESS GLOBE</button>
+        </div>
+    </div>
+
+    <script>
+        // 1. CONFIGURATION
+        // Get your FREE token from: https://ion.cesium.com/
+        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIyODg1YTZhNS0wNzFmLTQxZTktYjlhNS01MjdiY2Y3ZDFmYzMiLCJpZCI6MzkwMTg0LCJpYXQiOjE3NzA5NTcyNDZ9.XcDlURLbI-s1S_Wf4XI3RwE4Xbz6IZyUpMx5wl7ozPg';
+
+        // 2. INITIALIZE GLOBE
+        const viewer = new Cesium.Viewer('cesiumContainer', {
+            terrainProvider: Cesium.createWorldTerrain(),
+            imageryProvider: new Cesium.IonImageryProvider({ assetId: 2 }), // "Blue Marble" or Bing
+            baseLayerPicker: false,
+            geocoder: false,
+            homeButton: false,
+            infoBox: false,
+            sceneModePicker: false,
+            navigationHelpButton: false,
+            animation: false,
+            timeline: false,
+            fullscreenButton: false
+        });
+
+        // Hide the credits (only allowed for personal/dev use)
+        viewer.cesiumWidget.creditContainer.style.display = "none";
+
+        // Enable Lighting (Sun/Shadows)
+        viewer.scene.globe.enableLighting = true; 
+
+        // 3. ADD CLOUDS (The "Realistic" Layer)
+        // We create a sphere slightly larger than Earth (radius + 10km)
+        const earthRadius = 6371000.0;
+        const cloudHeight = 15000.0; // 15km high clouds
+
+        const clouds = viewer.entities.add({
+            name: "Rotating Clouds",
+            position: Cesium.Cartesian3.ZERO,
+            orientation: new Cesium.CallbackProperty((time, result) => {
+                // Rotate the clouds based on time
+                const spinFactor = Cesium.Math.toRadians(time.secondsOfDay * 0.05); // Speed
+                return Cesium.Quaternion.fromAxisAngle(Cesium.Cartesian3.UNIT_Z, -spinFactor);
+            }, false),
+            ellipsoid: {
+                radii: new Cesium.Cartesian3(earthRadius + cloudHeight, earthRadius + cloudHeight, earthRadius + cloudHeight),
+                material: new Cesium.ImageMaterialProperty({
+                    image: 'clouds.png', // MAKE SURE YOU HAVE THIS IMAGE
+                    transparent: true,
+                    alpha: 0.6
+                })
+            }
+        });
+
+        // 4. ADD A TEST TRIP (New York to London)
+        function addTrip(startLat, startLng, endLat, endLng) {
+            const start = Cesium.Cartesian3.fromDegrees(startLng, startLat);
+            const end = Cesium.Cartesian3.fromDegrees(endLng, endLat);
+
+            // Add Pin
+            viewer.entities.add({
+                position: end,
+                point: { pixelSize: 10, color: Cesium.Color.CYAN }
+            });
+
+            // Add Arc Line (The Flight Path)
+            viewer.entities.add({
+                polyline: {
+                    positions: [start, end],
+                    width: 2,
+                    material: new Cesium.PolylineGlowMaterialProperty({
+                        glowPower: 0.2,
+                        color: Cesium.Color.CYAN
+                    }),
+                    arcType: Cesium.ArcType.GEODESIC
+                }
+            });
+        }
+
+        // Add a dummy trip to see it working immediately
+        addTrip(-74.0060, 40.7128, -0.1276, 51.5074); // NYC -> London
+
+        // 5. CINEMATIC FLY-TO
+        function flyHome() {
+            viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(-0.1276, 51.5074, 20000000), // High orbit
+                duration: 3
+            });
+        }
+
+        // Placeholder for Firebase Logic
+        // You would fetch Firestore data here and loop through 'addTrip()'
+    </script>
+</body>
+</html>
