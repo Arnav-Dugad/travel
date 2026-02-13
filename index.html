@@ -59,7 +59,7 @@
 
         // 2. INITIALIZE GLOBE
         const viewer = new Cesium.Viewer('cesiumContainer', {
-            terrainProvider: Cesium.createWorldTerrain(),
+            terrain: Cesium.Terrain.fromWorldTerrain(),
             imageryProvider: new Cesium.IonImageryProvider({ assetId: 2 }), // "Blue Marble" or Bing
             baseLayerPicker: false,
             geocoder: false,
